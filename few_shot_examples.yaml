@@ -1,0 +1,65 @@
+# Few-shot question -> SQL examples for the NL-to-SQL prompt constructor.
+#
+# SOURCING POLICY: hand-curated only. Do not auto-generate entries here.
+# A bad example doesn't just fail once -- it teaches the generator to repeat
+# the same mistake on every future query that resembles it. Every entry
+# below has been manually written and should be verified against the live
+# Pagila schema before use.
+#
+# Structure: examples are grouped by "domain" so this scales cleanly later
+# (e.g. when AdventureWorks adds sales / hr / inventory domains). The
+# Phase 1.3 schema relevance filter's output (relevant table names) is
+# reused by the loader below to pick the best-matching examples for a given
+# question -- no extra embedding or LLM call is needed for this selection.
+
+domains:
+  pagila_core:
+    - question: "What is the email address of the customer named Mary Smith?"
+      sql: "SELECT email FROM customer WHERE first_name = 'Mary' AND last_name = 'Smith';"
+      pattern: simple_lookup
+      tables: [customer]
+
+    - question: "Which films has actor Nick Wahlberg appeared in?"
+      sql: |
+        SELECT f.title FROM film f
+        JOIN film_actor fa ON f.film_id = fa.film_id
+        JOIN actor a ON fa.actor_id = a.actor_id
+        WHERE a.first_name = 'Nick' AND a.last_name = 'Wahlberg';
+      pattern: join_two_hop
+      tables: [film, film_actor, actor]
+
+    - question: "How many films are there in each rating category?"
+      sql: "SELECT rating, COUNT(*) FROM film GROUP BY rating;"
+      pattern: aggregation_group_by
+      tables: [film]
+
+    - question: "How many rentals were made in May 2022?"
+      sql: "SELECT COUNT(*) FROM rental WHERE rental_date >= '2022-05-01' AND rental_date < '2022-06-01';"
+      pattern: date_range_filter
+      tables: [rental]
+
+    - question: "List all customers from Canada."
+      sql: |
+        SELECT c.first_name, c.last_name FROM customer c
+        JOIN address a ON c.address_id = a.address_id
+        JOIN city ci ON a.city_id = ci.city_id
+        JOIN country co ON ci.country_id = co.country_id
+        WHERE co.country = 'Canada';
+      pattern: multi_hop_categorical_filter
+      tables: [customer, address, city, country]
+
+    - question: "Which store generated the most revenue?"
+      sql: |
+        SELECT s.store_id, SUM(p.amount) AS revenue FROM payment p
+        JOIN staff st ON p.staff_id = st.staff_id
+        JOIN store s ON st.store_id = s.store_id
+        GROUP BY s.store_id ORDER BY revenue DESC LIMIT 1;
+      pattern: revenue_aggregation_join
+      tables: [payment, staff, store]
+
+  # Add new domains here as the project scales, e.g.:
+  # adventureworks_sales:
+  #   - question: "..."
+  #     sql: "..."
+  #     pattern: ...
+  #     tables: [...]
