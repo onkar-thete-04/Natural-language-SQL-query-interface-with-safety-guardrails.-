@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "text-to-sql"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "fastembed>=0.4",
+    "openai>=1.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["shared", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests"]
+pythonpath = ["."]
