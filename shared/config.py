@@ -40,6 +40,27 @@ class Settings:
         )
     )
     similarity_threshold: float = 0.3
+    block_ddl: bool = field(
+        default_factory=lambda: os.getenv("BLOCK_DDL", "true").lower() == "true"
+    )
+    block_dml_writes: bool = field(
+        default_factory=lambda: os.getenv("BLOCK_DML_WRITES", "true").lower() == "true"
+    )
+    enforce_row_limit: int = field(
+        default_factory=lambda: int(os.getenv("ENFORCE_ROW_LIMIT", "1000"))
+    )
+    max_subquery_depth: int = field(
+        default_factory=lambda: int(os.getenv("MAX_SUBQUERY_DEPTH", "3"))
+    )
+    max_scan_rows: int = field(
+        default_factory=lambda: int(os.getenv("MAX_SCAN_ROWS", "100000"))
+    )
+    readonly_db_url: str = field(
+        default_factory=lambda: os.getenv(
+            "READONLY_DATABASE_URL",
+            "postgresql://readonly_user:readonly_pass@localhost:5432/pagila",
+        )
+    )
 
     def __post_init__(self) -> None:
         if not self.nvidia_api_key:
