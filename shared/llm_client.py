@@ -29,3 +29,26 @@ class LLMClient:
             return content
         except Exception as exc:
             raise LLMClientError(f"LLM call failed: {exc}") from exc
+
+    def generate_sql_structured(
+        self,
+        prompt: str,
+        tools: list[dict],
+        tool_choice: str = "required",
+        messages: list[dict] | None = None,
+    ) -> object:
+        model_name = self._settings.sql_gen_model
+        if messages is None:
+            messages = [{"role": "user", "content": prompt}]
+        try:
+            response = self._client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                temperature=0.0,
+                max_tokens=1024,
+            )
+            return response
+        except Exception as exc:
+            raise LLMClientError(f"LLM structured call failed: {exc}") from exc
