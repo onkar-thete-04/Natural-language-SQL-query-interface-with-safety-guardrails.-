@@ -14,6 +14,7 @@ dependencies = [
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
     "numpy>=1.24",
+    "sqlparse>=0.5",
 ]
 
 [project.optional-dependencies]
@@ -22,5 +23,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["shared", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests"]
+testpaths = ["shared/tests", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests", "sql_generator/tests", "guardrail/tests", "sandbox/tests", "executor/tests"]
 pythonpath = ["."]
