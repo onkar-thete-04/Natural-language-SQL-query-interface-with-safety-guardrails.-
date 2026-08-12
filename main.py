@@ -5,7 +5,13 @@ import sys
 
 def run_pipeline(question: str) -> None:
     from shared.config import Settings
-    from shared.errors import SchemaIntrospectionError, LLMClientError
+    from shared.errors import (
+        SchemaIntrospectionError,
+        LLMClientError,
+        SQLValidationError,
+        GuardrailError,
+        ExecutionError,
+    )
 
     print(f"Question: {question}")
     print("-" * 60)
@@ -83,19 +89,73 @@ def run_pipeline(question: str) -> None:
     print(prompt)
     print("=" * 60)
 
-    print("\n[6] Calling LLM...")
+    print("\n[6] Calling LLM (structured output)...")
+    from shared.llm_client import LLMClient
+    from sql_generator.generator import SQLGenerator
     try:
-        from shared.llm_client import LLMClient
         client = LLMClient(settings)
-        sql = client.generate_sql(prompt)
-        print("\n" + "=" * 60)
-        print("GENERATED SQL")
-        print("=" * 60)
-        print(sql)
-        print("=" * 60)
-    except LLMClientError as exc:
-        print(f"LLM call failed: {exc}")
-        print("(Prompt was built successfully, but API call failed)")
+        generator = SQLGenerator(client=client, max_retries=3)
+        sql_result = generator.generate(prompt)
+    except (LLMClientError, SQLValidationError) as exc:
+        print(f"SQL generation failed: {exc}")
+        print("(Prompt was built successfully, but LLM call or validation failed)")
+        sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print("GENERATED SQL")
+    print("=" * 60)
+    print(sql_result.sql)
+    print("=" * 60)
+    print(f"\nExplanation: {sql_result.explanation}")
+    print(f"Confidence:  {sql_result.confidence:.2f}")
+    print(f"Tables:      {sql_result.tables}")
+    print(f"Columns:     {sql_result.columns}")
+
+    print("\n[7] Running guardrail checks...")
+    from guardrail.validator import validate
+    from sqlalchemy import create_engine as _ce
+    guardrail_engine = _ce(settings.db_url)
+    try:
+        guarded_sql, decision = validate(sql_result.sql, settings, guardrail_engine)
+    except Exception as exc:
+        print(f"Guardrail check failed: {exc}")
+        sys.exit(1)
+
+    if not decision.passed:
+        print("    QUERY BLOCKED by guardrail:")
+        for v in decision.violations:
+            print(f"    [{v.rule}] {v.reason}")
+        sys.exit(1)
+    print("    All guardrail checks passed.")
+    if guarded_sql != sql_result.sql:
+        print(f"    SQL rewritten by row-limit rule:")
+        print(f"    {guarded_sql}")
+
+    print("\n[8] Opening sandbox session (read-only)...")
+    from sandbox.engine import create_readonly_engine, read_only_session
+    readonly_engine = create_readonly_engine(settings.readonly_db_url)
+
+    print("\n[9] Executing query...")
+    from executor.runner import execute
+    try:
+        with read_only_session(readonly_engine) as conn:
+            result = execute(guarded_sql, conn, row_limit=settings.enforce_row_limit)
+    except ExecutionError as exc:
+        print(f"Execution failed: {exc}")
+        sys.exit(1)
+
+    print("\n" + "=" * 60)
+    print("EXECUTION RESULTS")
+    print("=" * 60)
+    print(f"Row count:         {result.row_count}")
+    print(f"Execution time:    {result.execution_time_ms:.2f} ms")
+    print(f"Truncated:         {result.truncated}")
+    print(f"Columns:           {result.columns}")
+    print(f"\nPreview (first 5 rows):")
+    for i, row in enumerate(result.data[:5]):
+        print(f"  {i}: {row}")
+    print(f"\nEXPLAIN plan:\n{result.explain_plan}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
