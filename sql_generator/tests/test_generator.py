@@ -109,3 +109,17 @@ def test_confidence_out_of_range_clamped():
     gen._client.generate_sql_structured.return_value = resp
     result = gen.generate("prompt")
     assert 0.0 <= result.confidence <= 1.0
+
+
+def test_retry_feedback_forwarded():
+    bad_args = {"sql": "SELECT 1; SELECT 2;", "explanation": "", "confidence": 0.0, "tables": [], "columns": []}
+    good_args = {"sql": "SELECT 1;", "explanation": "ok", "confidence": 0.9, "tables": [], "columns": []}
+    gen = SQLGenerator(client=MagicMock(), max_retries=3)
+    gen._client.generate_sql_structured.side_effect = [
+        _make_tool_call_response(bad_args),
+        _make_tool_call_response(good_args),
+    ]
+    gen.generate("prompt")
+    second_call_kwargs = gen._client.generate_sql_structured.call_args_list[1].kwargs
+    msgs = second_call_kwargs["messages"]
+    assert any(m["role"] == "system" and "Previous attempt failed" in m["content"] for m in msgs)

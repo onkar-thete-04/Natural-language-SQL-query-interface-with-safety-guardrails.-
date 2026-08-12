@@ -5,7 +5,7 @@ from typing import Any
 
 import sqlparse
 
-from shared.errors import LLMClientError, SQLValidationError
+from shared.errors import SQLValidationError
 from sql_generator.models import SQLResult
 
 TOOL_SCHEMA = {
@@ -36,10 +36,11 @@ class SQLGenerator:
     def generate(self, prompt: str) -> SQLResult:
         messages = [{"role": "user", "content": prompt}]
         last_error = ""
-        for attempt in range(self._max_retries):
+        for _ in range(self._max_retries):
             try:
                 response = self._client.generate_sql_structured(
                     prompt=prompt,
+                    messages=messages,
                     tools=[TOOL_SCHEMA],
                     tool_choice="required",
                 )
