@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from unittest.mock import MagicMock
 
 from guardrail.models import GuardrailViolation
@@ -93,6 +91,22 @@ def test_row_limit_respects_under_limit():
 def test_row_limit_keeps_existing_exact():
     sql, v = enforce_row_limit("SELECT * FROM customer LIMIT 1000", limit=1000)
     assert v is None
+
+
+def test_row_limit_ignores_inner_subquery_limit():
+    sql, v = enforce_row_limit("SELECT * FROM (SELECT * FROM big LIMIT 5000) sub", limit=1000)
+    assert "5000" in sql
+    assert v is None
+
+
+def test_row_limit_clamps_top_level_keeping_inner():
+    sql, v = enforce_row_limit(
+        "SELECT * FROM (SELECT * FROM big LIMIT 5000) sub LIMIT 2000", limit=1000
+    )
+    assert "LIMIT 1000" in sql.upper()
+    assert "5000" in sql
+    assert v is not None
+    assert "2000" in v.reason
 
 
 # --- check_subquery_depth ---

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

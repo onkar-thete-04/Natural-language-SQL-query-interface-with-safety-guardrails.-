@@ -119,6 +119,8 @@ def run_pipeline(question: str) -> None:
         guarded_sql, decision = validate(sql_result.sql, settings, guardrail_engine)
     except Exception as exc:
         print(f"Guardrail check failed: {exc}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
     if not decision.passed:

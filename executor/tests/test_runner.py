@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call
-
-import pytest
+from unittest.mock import MagicMock
 
 from executor.models import ExecutionResult
 from executor.runner import execute

@@ -66,13 +66,57 @@ def _first_keyword(stmt: Statement) -> str | None:
     return None
 
 
-def enforce_row_limit(sql: str, limit: int) -> tuple[str, GuardrailViolation | None]:
+def _top_level_text(sql: str) -> str:
+    depth = 0
+    out = []
+    for ch in sql:
+        if ch == "(":
+            depth += 1
+            continue
+        if ch == ")":
+            if depth > 0:
+                depth -= 1
+            continue
+        if depth == 0:
+            out.append(ch)
+    return "".join(out)
+
+
+def _find_top_level_limit(sql: str):
     limit_pattern = re.compile(r"\bLIMIT\s+(\d+)\b", re.IGNORECASE)
-    match = limit_pattern.search(sql)
+    depth = 0
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch == "(":
+            depth += 1
+            i += 1
+            continue
+        if ch == ")":
+            if depth > 0:
+                depth -= 1
+            i += 1
+            continue
+        if depth == 0:
+            m = limit_pattern.match(sql, i)
+            if m:
+                return m
+        i += 1
+    return None
+
+
+def enforce_row_limit(sql: str, limit: int) -> tuple[str, GuardrailViolation | None]:
+    top_level = _top_level_text(sql)
+    limit_pattern = re.compile(r"\bLIMIT\s+(\d+)\b", re.IGNORECASE)
+    match = limit_pattern.search(top_level)
     if match:
         existing = int(match.group(1))
         if existing > limit:
-            new_sql = limit_pattern.sub(f"LIMIT {limit}", sql, count=1)
+            top_match = _find_top_level_limit(sql)
+            new_sql = (
+                sql[: top_match.start()] + f"LIMIT {limit}" + sql[top_match.end():]
+            )
             return new_sql, GuardrailViolation(
                 rule="enforce_row_limit",
                 reason=f"LIMIT reduced from {existing} to {limit}",
