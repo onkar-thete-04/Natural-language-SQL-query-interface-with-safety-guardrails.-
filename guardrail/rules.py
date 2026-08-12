@@ -110,3 +110,40 @@ def _count_subquery_depth(stmt: Statement) -> int:
             return d
         return 0
     return _depth_of(stmt)
+
+
+import re as _re
+
+from sqlalchemy import text as _text
+
+
+def estimate_scan_cost(
+    sql: str, engine: object, max_scan_rows: int
+) -> GuardrailViolation | None:
+    rows_estimate = _estimate_rows(sql, engine)
+    if rows_estimate is None:
+        return None
+    if rows_estimate > max_scan_rows:
+        return GuardrailViolation(
+            rule="estimate_scan_cost",
+            reason=f"Estimated scan rows {rows_estimate} exceeds max {max_scan_rows}",
+        )
+    return None
+
+
+def _estimate_rows(sql: str, engine: object) -> int | None:
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(_text(f"EXPLAIN {sql}")).fetchall()
+    except Exception:
+        return None
+    total = 0
+    found_any = False
+    for row in result:
+        line = row[0] if isinstance(row, (tuple, list)) else str(row)
+        line_str = str(line)
+        match = _re.search(r"rows=(\d+)", line_str)
+        if match:
+            total += int(match.group(1))
+            found_any = True
+    return total if found_any else None

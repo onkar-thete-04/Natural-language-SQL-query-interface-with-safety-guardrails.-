@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import pytest
 
+from unittest.mock import MagicMock
+
 from guardrail.models import GuardrailViolation
 from guardrail.rules import (
     block_ddl,
     block_dml_writes,
     enforce_row_limit,
     check_subquery_depth,
+    estimate_scan_cost,
 )
 
 
@@ -118,3 +121,37 @@ def test_subquery_depth_four_levels_fails():
     assert v is not None
     assert v.rule == "check_subquery_depth"
     assert "depth" in v.reason.lower()
+
+
+# --- estimate_scan_cost ---
+
+def _scan_engine(rows_tuples):
+    engine = MagicMock()
+    conn = MagicMock()
+    engine.connect.return_value.__enter__.return_value = conn
+    engine.connect.return_value.__exit__.return_value = False
+    conn.execute.return_value.fetchall.return_value = rows_tuples
+    return engine
+
+
+def test_scan_cost_within_budget():
+    engine = _scan_engine([("Seq Scan on customer  (cost=0.00..1.54 rows=5 width=8)",)])
+    v = estimate_scan_cost("SELECT * FROM customer", engine, max_scan_rows=100000)
+    assert v is None
+
+
+def test_scan_cost_exceeds_budget():
+    engine = _scan_engine([("Seq Scan on payment  (cost=0.00..154.50 rows=500000 width=50)",)])
+    v = estimate_scan_cost("SELECT * FROM payment", engine, max_scan_rows=100000)
+    assert v is not None
+    assert v.rule == "estimate_scan_cost"
+    assert "500000" in v.reason or "100000" in v.reason
+
+
+def test_scan_cost_sums_multiple_tables():
+    engine = _scan_engine([
+        ("Seq Scan on a  (cost=0.00..1.00 rows=60000 width=10)",),
+        ("Seq Scan on b  (cost=0.00..2.00 rows=50000 width=10)",),
+    ])
+    v = estimate_scan_cost("SELECT * FROM a JOIN b ON a.id=b.id", engine, max_scan_rows=100000)
+    assert v is not None
