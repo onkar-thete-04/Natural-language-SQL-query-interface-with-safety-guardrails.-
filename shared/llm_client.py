@@ -36,8 +36,9 @@ class LLMClient:
         tools: list[dict],
         tool_choice: str = "required",
         messages: list[dict] | None = None,
+        model: str | None = None,
     ) -> object:
-        model_name = self._settings.sql_gen_model
+        model_name = model or self._settings.sql_gen_model
         if messages is None:
             messages = [{"role": "user", "content": prompt}]
         try:

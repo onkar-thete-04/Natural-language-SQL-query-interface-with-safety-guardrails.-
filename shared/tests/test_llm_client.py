@@ -57,3 +57,19 @@ def test_existing_generate_sql_still_works():
     client._client.chat.completions.create.return_value = resp
     result = client.generate_sql("prompt")
     assert result == "SELECT 1;"
+
+
+def test_generate_sql_structured_model_defaults_to_sql_gen_model():
+    client = LLMClient(_mock_settings())
+    client._client = MagicMock()
+    client._client.chat.completions.create.return_value = MagicMock()
+    client.generate_sql_structured(prompt="p", tools=[])
+    assert client._client.chat.completions.create.call_args.kwargs["model"] == "test-model"
+
+
+def test_generate_sql_structured_model_override():
+    client = LLMClient(_mock_settings())
+    client._client = MagicMock()
+    client._client.chat.completions.create.return_value = MagicMock()
+    client.generate_sql_structured(prompt="p", tools=[], model="judge-model")
+    assert client._client.chat.completions.create.call_args.kwargs["model"] == "judge-model"
