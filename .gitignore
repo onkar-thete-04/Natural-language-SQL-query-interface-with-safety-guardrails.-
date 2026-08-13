@@ -7,6 +7,7 @@ dist/
 *.log
 .superpowers/
 docs/superpowers/
+.worktrees/
 
 # stray literal ~ directory (not part of project)
 ~
