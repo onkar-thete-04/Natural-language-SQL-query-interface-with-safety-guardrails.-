@@ -38,7 +38,7 @@ def _agreement(agreed=True):
 def test_all_signals_high_yields_high_confidence():
     report = compute_confidence(
         syntax_score=1.0,
-        alignment=_alignment(1.0),
+        alignment=_alignment(0.95),
         sanity=_sanity(1.0),
         agreement=_agreement(True),
         coverage=1.0,
@@ -46,7 +46,7 @@ def test_all_signals_high_yields_high_confidence():
         settings=_settings(),
     )
     assert isinstance(report, ConfidenceReport)
-    assert report.overall == 100.0
+    assert report.overall == 98.5
 
 
 def test_unavailable_signals_renormalize():
