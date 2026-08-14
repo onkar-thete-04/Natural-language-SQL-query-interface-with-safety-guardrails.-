@@ -23,5 +23,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["shared/tests", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests", "sql_generator/tests", "guardrail/tests", "sandbox/tests", "executor/tests"]
+testpaths = ["shared/tests", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests", "sql_generator/tests", "guardrail/tests", "sandbox/tests", "executor/tests", "back_translation/tests", "sanity_check/tests", "multi_query/tests", "confidence/tests"]
 pythonpath = ["."]
