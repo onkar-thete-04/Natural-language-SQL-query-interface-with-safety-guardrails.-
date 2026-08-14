@@ -111,7 +111,36 @@ def run_pipeline(question: str) -> None:
     print(f"Tables:      {sql_result.tables}")
     print(f"Columns:     {sql_result.columns}")
 
-    print("\n[7] Running guardrail checks...")
+    print("\n[7] Back-translating SQL -> question...")
+    from back_translation.translator import back_translate
+    from back_translation.aligner import align
+    alignment = None
+    try:
+        back_translated = back_translate(sql_result.sql, client, settings)
+        alignment = align(question, back_translated, embedder, client, settings)
+        print(f"    Back-translated: {back_translated}")
+        print(f"    Alignment: {alignment.alignment_score:.2f} ({alignment.method})")
+        if alignment.low_confidence:
+            print("    WARNING: low alignment -- SQL may not answer the original question")
+    except Exception as exc:
+        print(f"    WARNING: back-translation unavailable: {exc}")
+
+    print("\n[8] Checking multi-query complexity...")
+    from multi_query.complexity import is_complex
+    from multi_query.generator import generate_alternative
+    second_sql_result = None
+    if is_complex(question, sql_result):
+        print("    Complex question -- generating second independent SQL approach...")
+        try:
+            second_sql_result = generate_alternative(prompt, generator)
+            print(f"    Alternative SQL:\n{second_sql_result.sql}")
+        except Exception as exc:
+            print(f"    WARNING: alternative generation unavailable: {exc}")
+            second_sql_result = None
+    else:
+        print("    Simple question -- skipping second approach")
+
+    print("\n[9] Running guardrail checks...")
     from guardrail.validator import validate
     from sqlalchemy import create_engine as _ce
     guardrail_engine = _ce(settings.db_url)
@@ -133,15 +162,28 @@ def run_pipeline(question: str) -> None:
         print(f"    SQL rewritten by row-limit rule:")
         print(f"    {guarded_sql}")
 
-    print("\n[8] Opening sandbox session (read-only)...")
+    print("\n[10] Opening sandbox session (read-only)...")
     from sandbox.engine import create_readonly_engine, read_only_session
     readonly_engine = create_readonly_engine(settings.readonly_db_url)
 
-    print("\n[9] Executing query...")
+    print("\n[11] Executing query...")
     from executor.runner import execute
     try:
         with read_only_session(readonly_engine) as conn:
             result = execute(guarded_sql, conn, row_limit=settings.enforce_row_limit)
+            result_b = None
+            if second_sql_result is not None:
+                try:
+                    from guardrail.validator import validate as _validate
+                    alt_sql, alt_decision = _validate(
+                        second_sql_result.sql, settings, guardrail_engine
+                    )
+                    if alt_decision.passed:
+                        result_b = execute(alt_sql, conn, row_limit=settings.enforce_row_limit)
+                    else:
+                        print("    Alternative SQL blocked by guardrail -- skipped")
+                except Exception as exc:
+                    print(f"    WARNING: alternative execution unavailable: {exc}")
     except ExecutionError as exc:
         print(f"Execution failed: {exc}")
         sys.exit(1)
@@ -158,6 +200,86 @@ def run_pipeline(question: str) -> None:
         print(f"  {i}: {row}")
     print(f"\nEXPLAIN plan:\n{result.explain_plan}")
     print("=" * 60)
+
+    print("\n[12] Running sanity checks...")
+    from sanity_check.checks import run_checks
+    from sanity_check.models import SanityCheckResult
+    from sanity_check.empty_result import check_empty_result
+    sanity = None
+    try:
+        with read_only_session(readonly_engine) as conn:
+            sanity = run_checks(
+                guarded_sql, result,
+                sql_result.tables, sql_result.columns, conn, settings,
+            )
+            empty_anomaly = check_empty_result(
+                guarded_sql, question, result,
+                sql_result.tables, conn, client, settings,
+            )
+            if empty_anomaly is not None:
+                sanity = SanityCheckResult(
+                    checks_run=sanity.checks_run + 1,
+                    passed=sanity.passed,
+                    anomalies=sanity.anomalies + [empty_anomaly],
+                    pass_rate=(sanity.passed) / (sanity.checks_run + 1),
+                )
+        print(f"    {sanity.passed}/{sanity.checks_run} checks passed")
+        for a in sanity.anomalies:
+            print(f"    [{a.severity}] {a.check}: {a.message}")
+    except Exception as exc:
+        print(f"    WARNING: sanity checks unavailable: {exc}")
+
+    print("\n[13] Comparing multi-query results...")
+    agreement = None
+    if result_b is not None:
+        from multi_query.comparator import compare
+        agreement = compare(result, result_b)
+        if agreement.agreed:
+            print("    Approaches AGREE -- high confidence")
+        else:
+            print("    Approaches DIVERGE:")
+            print(f"    {agreement.divergence_detail}")
+            print("    Primary result preview:")
+            for i, row in enumerate(result.data[:3]):
+                print(f"      {i}: {row}")
+            print("    Alternative result preview:")
+            for i, row in enumerate(result_b.data[:3]):
+                print(f"      {i}: {row}")
+    else:
+        print("    Skipped (no second approach)")
+
+    print("\n[14] Computing confidence...")
+    from confidence.scorer import compute_confidence, compute_schema_coverage
+    coverage, coverage_flags = compute_schema_coverage(
+        sql_result.tables, sql_result.columns, relevant, schema,
+    )
+    all_flags = coverage_flags
+    if sanity is not None:
+        all_flags = all_flags + [a.message for a in sanity.anomalies]
+    report = compute_confidence(
+        syntax_score=1.0,
+        alignment=alignment,
+        sanity=sanity,
+        agreement=agreement,
+        coverage=coverage,
+        flags=all_flags,
+        settings=settings,
+    )
+
+    print("\n" + "=" * 60)
+    print(f"CONFIDENCE: {report.overall:.1f} / 100")
+    print("=" * 60)
+    for s in report.signals:
+        bar = "#" * int(round(s.score * 20))
+        print(f"  {s.name:28s} {s.score:5.2f}  {bar}")
+    if report.flags:
+        print("\n  Flags:")
+        for f in report.flags:
+            print(f"    - {f}")
+
+    if settings.block_on_low_confidence and report.overall < settings.min_confidence_score:
+        print(f"\n  BLOCKED: confidence {report.overall:.1f} below floor {settings.min_confidence_score}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
