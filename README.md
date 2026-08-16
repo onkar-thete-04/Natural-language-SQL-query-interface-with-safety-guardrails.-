@@ -108,8 +108,8 @@ Copy or create `.env` at the project root:
 ```env
 NVIDIA_API_KEY=your_key_here
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
-SQL_GEN_MODEL=deepseek-ai/deepseek-v4-flash
-JUDGE_MODEL=deepseek-ai/deepseek-v4-pro
+SQL_GEN_MODEL=z-ai/glm-5.2
+JUDGE_MODEL=minimaxai/minimax-m3
 DATABASE_URL=postgresql://postgres:123456@localhost:5432/pagila
 READONLY_DATABASE_URL=postgresql://readonly_user:readonly_pass@localhost:5432/pagila
 EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
@@ -200,7 +200,7 @@ $ python main.py "which store generated the most revenue"
 Question: which store generated the most revenue
 ----------------------------------------------------------
 DB: postgresql://postgres:123456@localhost:5432/pagila
-Model: deepseek-ai/deepseek-v4-flash
+Model: z-ai/glm-5.2
 
 [1] Introspecting schema...
     Found 21 tables

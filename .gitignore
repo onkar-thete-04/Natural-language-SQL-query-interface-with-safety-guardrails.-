@@ -5,6 +5,7 @@ dist/
 .env
 .pytest_cache/
 *.log
+backtranslation_tuning.csv
 .superpowers/
 docs/superpowers/
 .worktrees/
