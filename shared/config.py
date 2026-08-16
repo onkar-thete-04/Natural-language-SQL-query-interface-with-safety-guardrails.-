@@ -61,6 +61,40 @@ class Settings:
             "postgresql://readonly_user:readonly_pass@localhost:5432/pagila",
         )
     )
+    back_translation_embed_pass_threshold: float = field(
+        default_factory=lambda: float(
+            os.getenv("BACK_TRANSLATION_EMBED_PASS_THRESHOLD", "0.92")
+        )
+    )
+    back_translation_embed_fail_threshold: float = field(
+        default_factory=lambda: float(
+            os.getenv("BACK_TRANSLATION_EMBED_FAIL_THRESHOLD", "0.70")
+        )
+    )
+    sanity_null_threshold: float = field(
+        default_factory=lambda: float(os.getenv("SANITY_NULL_THRESHOLD", "0.80"))
+    )
+    block_on_low_confidence: bool = field(
+        default_factory=lambda: os.getenv("BLOCK_ON_LOW_CONFIDENCE", "false").lower() == "true"
+    )
+    min_confidence_score: float = field(
+        default_factory=lambda: float(os.getenv("MIN_CONFIDENCE_SCORE", "60.0"))
+    )
+    confidence_weight_syntax: float = field(
+        default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_SYNTAX", "0.10"))
+    )
+    confidence_weight_alignment: float = field(
+        default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_ALIGNMENT", "0.30"))
+    )
+    confidence_weight_sanity: float = field(
+        default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_SANITY", "0.25"))
+    )
+    confidence_weight_agreement: float = field(
+        default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_AGREEMENT", "0.20"))
+    )
+    confidence_weight_coverage: float = field(
+        default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_COVERAGE", "0.15"))
+    )
 
     def __post_init__(self) -> None:
         if not self.nvidia_api_key:
