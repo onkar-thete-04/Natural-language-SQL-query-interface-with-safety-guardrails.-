@@ -104,6 +104,3 @@ def create_app(service=None, store=None) -> FastAPI:
 
 def _error(exc) -> dict:
     return {"error": {"code": type(exc).__name__, "message": str(exc)}}
-
-
-app = create_app()

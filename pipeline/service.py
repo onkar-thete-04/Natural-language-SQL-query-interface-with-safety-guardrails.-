@@ -63,7 +63,7 @@ class PipelineService:
 
         from prompt_builder.constructor import PromptConstructor
         from few_shot_loader import FewShotLoader
-        loader = FewShotLoader()
+        loader = FewShotLoader(feedback_path=self.settings.few_shot_feedback_path)
         constructor = PromptConstructor(schema, loader, settings)
         prompt = constructor.build(
             question=question,

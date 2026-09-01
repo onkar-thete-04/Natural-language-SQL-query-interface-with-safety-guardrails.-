@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
@@ -8,7 +10,7 @@ from api.app import create_app
 from store.repository import Store
 
 
-def _make_result(question="which store generated the most revenue"):
+def _make_result(question="which store generated the most revenue", data=None):
     from back_translation.models import AlignmentResult
     from confidence.models import ConfidenceReport, ConfidenceSignal
     from executor.models import ExecutionResult
@@ -28,7 +30,7 @@ def _make_result(question="which store generated the most revenue"):
                                   aligned=True, low_confidence=False),
         second_sql=None,
         guardrail=GuardrailDecision(passed=True, violations=[]),
-        execution=ExecutionResult(data=[{"amount": 1.0}], columns=["amount"], row_count=1,
+        execution=ExecutionResult(data=data or [{"amount": 1.0}], columns=["amount"], row_count=1,
                                   execution_time_ms=1.0, explain_plan="", truncated=False),
         sanity=SanityCheckResult(checks_run=4, passed=4, anomalies=[], pass_rate=1.0),
         agreement=None,
@@ -59,6 +61,18 @@ def test_query_endpoint_returns_result(tmp_path):
     assert body["query_id"]
     assert body["generated_sql"]["sql"] == "SELECT 1;"
     assert body["confidence_report"]["overall"] == 92.6
+
+
+def test_query_endpoint_serializes_decimal_and_datetime(tmp_path):
+    service = MagicMock()
+    service.run.return_value = _make_result(
+        data=[{"amount": Decimal("34099.73"), "ts": datetime(2026, 9, 1, 12, 30, 45)}]
+    )
+    client = _client(service, _store(tmp_path))
+    resp = client.post("/v1/query", json={"question": "which store generated the most revenue"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["execution"]["data"] == [{"amount": 34099.73, "ts": "2026-09-01T12:30:45"}]
 
 
 def test_schema_endpoint(tmp_path):

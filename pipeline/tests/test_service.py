@@ -61,7 +61,7 @@ def _patch_collaborators(monkeypatch):
     )
 
     import few_shot_loader
-    monkeypatch.setattr(few_shot_loader, "FewShotLoader", lambda: MagicMock())
+    monkeypatch.setattr(few_shot_loader, "FewShotLoader", lambda feedback_path=None: MagicMock())
 
     import sql_generator.generator
     generator = MagicMock()

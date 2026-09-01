@@ -159,7 +159,7 @@ CONFIDENCE_WEIGHT_COVERAGE=0.15             # weight of the coverage signal (def
 
 Phase 4 (API + frontend + feedback loop) adds:
 
-- **HTTP API** — `api/` exposes `POST /v1/query`, `POST /v1/execute`, `GET /v1/schema`, `GET /v1/history`, `GET /v1/query/{id}`, and `POST /v1/feedback` via FastAPI. Start with `uvicorn api.app:app --host 127.0.0.1 --port 8000` (auto docs at `/docs`).
+- **HTTP API** — `api/` exposes `POST /v1/query`, `POST /v1/execute`, `GET /v1/schema`, `GET /v1/history`, `GET /v1/query/{id}`, and `POST /v1/feedback` via FastAPI. Start with `uvicorn api.app:create_app --factory --host 127.0.0.1 --port 8000` (auto docs at `/docs`).
 - **Streamlit frontend** — `frontend/app.py` (`streamlit run frontend/app.py`) with a question box, syntax-highlighted editable SQL, sortable results, confidence breakdown, and a history sidebar.
 - **SQLite store** — `store/` persists query history and feedback in `store/text_to_sql.db`.
 - **Feedback flywheel** — marking a result correct appends it to `few_shot_feedback.yaml` (merged into few-shot selection); marking it incorrect exports a regression case to `eval/test_cases.yaml`, runnable with `python -m eval.runner`.
