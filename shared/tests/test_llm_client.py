@@ -20,6 +20,7 @@ def _mock_settings():
     s.llm_retry_max_attempts = 4
     s.llm_retry_base_delay = 2.0
     s.llm_retry_max_delay = 60.0
+    s.llm_timeout_seconds = 120
     return s
 
 
@@ -149,3 +150,16 @@ def test_non_retryable_error_fails_immediately():
         client.generate_sql("prompt")
 
     assert client._client.chat.completions.create.call_count == 1
+
+
+def test_client_constructed_with_timeout(monkeypatch):
+    captured = {}
+
+    def _fake_openai(**kwargs):
+        captured.update(kwargs)
+        return MagicMock()
+
+    monkeypatch.setattr("shared.llm_client.OpenAI", _fake_openai)
+    LLMClient(_mock_settings())
+
+    assert captured["timeout"] == 120

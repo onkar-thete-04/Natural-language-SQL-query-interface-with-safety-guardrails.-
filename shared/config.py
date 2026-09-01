@@ -107,6 +107,9 @@ class Settings:
     llm_retry_max_delay: float = field(
         default_factory=lambda: float(os.getenv("LLM_RETRY_MAX_DELAY", "60.0"))
     )
+    llm_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
+    )
 
     def __post_init__(self) -> None:
         if not self.nvidia_api_key:

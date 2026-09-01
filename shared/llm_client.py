@@ -56,6 +56,7 @@ class LLMClient:
         self._client = OpenAI(
             base_url=self._settings.nvidia_base_url,
             api_key=self._settings.nvidia_api_key,
+            timeout=self._settings.llm_timeout_seconds,
         )
         self._limiter = _SlidingWindowRateLimiter(self._settings.llm_rate_limit_rpm)
 
