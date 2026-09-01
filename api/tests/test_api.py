@@ -71,6 +71,21 @@ def test_schema_endpoint(tmp_path):
     assert resp.json()["tables"] == []
 
 
+def test_get_query_by_id_includes_query_id(tmp_path):
+    store = _store(tmp_path)
+    store.save_query(query_id="q1", session_id="s1", question="q", sql="SELECT 1;",
+                     confidence=1.0,
+                     result_json={"question": "q", "generated_sql": {"sql": "SELECT 1;"}},
+                     created_at="2026-09-01T00:00:00+00:00")
+    client = _client(MagicMock(), store)
+    resp = client.get("/v1/query/q1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["query_id"] == "q1"
+    assert body["question"] == "q"
+    assert body["generated_sql"]["sql"] == "SELECT 1;"
+
+
 def test_history_endpoint(tmp_path):
     store = _store(tmp_path)
     store.save_query(query_id="q1", session_id="s1", question="q", sql="SELECT 1;",

@@ -89,7 +89,7 @@ def create_app(service=None, store=None) -> FastAPI:
         row = app.state.store.get_query(query_id)
         if row is None:
             raise HTTPException(status_code=404, detail="query not found")
-        return row
+        return {"query_id": query_id, **row}
 
     @app.post("/v1/feedback")
     def post_feedback(body: FeedbackRequest):
