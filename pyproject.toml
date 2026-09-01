@@ -15,6 +15,10 @@ dependencies = [
     "python-dotenv>=1.0",
     "numpy>=1.24",
     "sqlparse>=0.5",
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "streamlit",
 ]
 
 [project.optional-dependencies]
@@ -23,5 +27,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["shared/tests", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests", "sql_generator/tests", "guardrail/tests", "sandbox/tests", "executor/tests", "back_translation/tests", "sanity_check/tests", "multi_query/tests", "confidence/tests"]
+testpaths = ["shared/tests", "schema_engine/tests", "relevance_filter/tests", "ambiguity_resolver/tests", "prompt_builder/tests", "sql_generator/tests", "guardrail/tests", "sandbox/tests", "executor/tests", "back_translation/tests", "sanity_check/tests", "multi_query/tests", "confidence/tests", "pipeline/tests", "store/tests", "eval/tests", "api/tests", "tests"]
 pythonpath = ["."]
