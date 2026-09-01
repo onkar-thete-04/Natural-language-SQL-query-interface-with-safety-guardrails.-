@@ -95,6 +95,32 @@ class Settings:
     confidence_weight_coverage: float = field(
         default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_COVERAGE", "0.15"))
     )
+    sqlite_db_path: str = field(
+        default_factory=lambda: os.getenv(
+            "SQLITE_DB_PATH", "store/text_to_sql.db"
+        )
+    )
+    few_shot_feedback_path: str = field(
+        default_factory=lambda: os.getenv(
+            "FEW_SHOT_FEEDBACK_PATH", "few_shot_feedback.yaml"
+        )
+    )
+    eval_test_cases_path: str = field(
+        default_factory=lambda: os.getenv(
+            "EVAL_TEST_CASES_PATH", "eval/test_cases.yaml"
+        )
+    )
+    api_host: str = field(
+        default_factory=lambda: os.getenv("API_HOST", "127.0.0.1")
+    )
+    api_port: int = field(
+        default_factory=lambda: int(os.getenv("API_PORT", "8000"))
+    )
+    api_base_url: str = field(
+        default_factory=lambda: os.getenv(
+            "API_BASE_URL", "http://127.0.0.1:8000"
+        )
+    )
 
     def __post_init__(self) -> None:
         if not self.nvidia_api_key:
