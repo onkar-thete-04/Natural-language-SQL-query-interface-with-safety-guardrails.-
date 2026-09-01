@@ -1,34 +1,31 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 
-from store.db import SCHEMA
+from store.db import connection, init_db
 
 
 class Store:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
-        self._conn = sqlite3.connect(db_path)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.executescript(SCHEMA)
-        self._conn.commit()
+        init_db(db_path)
 
     def save_query(self, *, query_id, session_id, question, sql, confidence, result_json, created_at) -> None:
-        self._conn.execute(
-            "INSERT INTO queries (id, session_id, question, sql, confidence, result_json, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (query_id, session_id, question, sql, confidence, json.dumps(result_json), created_at),
-        )
-        self._conn.commit()
+        with connection(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO queries (id, session_id, question, sql, confidence, result_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (query_id, session_id, question, sql, confidence, json.dumps(result_json), created_at),
+            )
 
     def get_history(self, session_id: str) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT q.id, q.question, q.sql, q.confidence, q.created_at, f.rating "
-            "FROM queries q LEFT JOIN feedback f ON f.query_id = q.id "
-            "WHERE q.session_id = ? ORDER BY q.created_at DESC",
-            (session_id,),
-        ).fetchall()
+        with connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT q.id, q.question, q.sql, q.confidence, q.created_at, f.rating "
+                "FROM queries q LEFT JOIN feedback f ON f.query_id = q.id "
+                "WHERE q.session_id = ? ORDER BY q.created_at DESC",
+                (session_id,),
+            ).fetchall()
         return [
             {
                 "query_id": r["id"],
@@ -42,26 +39,28 @@ class Store:
         ]
 
     def get_query(self, query_id: str) -> dict | None:
-        row = self._conn.execute(
-            "SELECT result_json FROM queries WHERE id = ?", (query_id,)
-        ).fetchone()
+        with connection(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT result_json FROM queries WHERE id = ?", (query_id,)
+            ).fetchone()
         if row is None:
             return None
         return json.loads(row["result_json"])
 
     def save_feedback(self, *, query_id, rating, note, created_at) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO feedback (query_id, rating, note, created_at) "
-            "VALUES (?, ?, ?, ?)",
-            (query_id, rating, note, created_at),
-        )
-        self._conn.commit()
+        with connection(self.db_path) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO feedback (query_id, rating, note, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (query_id, rating, note, created_at),
+            )
 
     def get_feedback(self, query_id: str) -> dict | None:
-        row = self._conn.execute(
-            "SELECT query_id, rating, note, created_at FROM feedback WHERE query_id = ?",
-            (query_id,),
-        ).fetchone()
+        with connection(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT query_id, rating, note, created_at FROM feedback WHERE query_id = ?",
+                (query_id,),
+            ).fetchone()
         if row is None:
             return None
         return dict(row)
