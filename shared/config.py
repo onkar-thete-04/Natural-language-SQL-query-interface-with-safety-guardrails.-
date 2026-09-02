@@ -120,6 +120,20 @@ class Settings:
         default_factory=lambda: os.getenv(
             "API_BASE_URL", "http://127.0.0.1:8000"
         )
+    llm_rate_limit_rpm: int = field(
+        default_factory=lambda: int(os.getenv("LLM_RATE_LIMIT_RPM", "35"))
+    )
+    llm_retry_max_attempts: int = field(
+        default_factory=lambda: int(os.getenv("LLM_RETRY_MAX_ATTEMPTS", "4"))
+    )
+    llm_retry_base_delay: float = field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_BASE_DELAY", "2.0"))
+    )
+    llm_retry_max_delay: float = field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_MAX_DELAY", "60.0"))
+    )
+    llm_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
     )
 
     def __post_init__(self) -> None:
