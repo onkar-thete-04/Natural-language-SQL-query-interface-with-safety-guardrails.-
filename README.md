@@ -177,6 +177,41 @@ API_PORT=8000
 API_BASE_URL=http://127.0.0.1:8000
 ```
 
+## Evaluation
+
+> 0.0% execution accuracy, 0.0% hallucination detection rate, zero unsafe queries executed across 0 test cases.
+
+The evaluation suite measures the system against a 54-case golden dataset
+(`evaluation/golden_dataset.yaml`) spanning six categories: simple lookups,
+multi-table JOINs, GROUP BY aggregations, date-range filters, ambiguous
+phrasing, and questions the database cannot answer. Four metrics are reported:
+
+- **SQL exact match** â€” normalized (sqlparse) string equivalence of generated vs gold SQL.
+- **Execution match** â€” generated result set equals gold SQL result set (order-insensitive).
+- **Hallucination detection rate** â€” recall over known-bad answers the system correctly flags.
+- **Guardrail effectiveness** â€” dangerous SQL blocked (see `evaluation/guardrail_cases.yaml`).
+
+Run live (requires NIM + seeded Postgres):
+
+```bash
+python -m evaluation
+```
+
+Run offline (scripted LLM, no NIM; still needs Postgres):
+
+```bash
+python -m evaluation --offline
+```
+
+The full stack (Postgres + API + frontend):
+
+```bash
+docker-compose up
+```
+
+After a live run, replace the headline line above with the real numbers
+(`evaluation/report.json`).
+
 ### 3. Start PostgreSQL with Pagila
 
 ```bash
