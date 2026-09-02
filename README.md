@@ -64,6 +64,9 @@ Each service is an independent package communicating through `shared/` only — 
 - **fastembed** (ONNX, `BAAI/bge-small-en-v1.5`) — table relevance embeddings
 - **OpenAI SDK** — LLM calls (pointed at NVIDIA API gateway)
 - **sqlparse** >=0.5 — SQL parsing for guardrail validation
+- **FastAPI** + **Uvicorn** — HTTP API (`api/`) exposing query/execute/schema/history/feedback endpoints
+- **Streamlit** — interactive frontend (`frontend/`)
+- **httpx** — async HTTP client (API testing + frontend↔API transport)
 - **PostgreSQL** 13 — target database (Pagila sample schema)
 - **Docker Compose** — local database provisioning
 
@@ -84,6 +87,11 @@ Text-to-SQL/
 ├── sanity_check/            # Post-execution sanity checks + empty-result detection
 ├── multi_query/             # Complexity detection + alternative generation + comparison
 ├── confidence/              # Weighted confidence aggregation + schema coverage
+├── pipeline/                # End-to-end pipeline orchestration
+├── api/                     # FastAPI HTTP API (query, execute, schema, history, feedback)
+├── store/                   # SQLite query history + feedback persistence
+├── eval/                    # Evaluation harness + regression test cases
+├── frontend/                # Streamlit UI
 ├── main.py                  # CLI entry point (pipeline steps [1]-[14])
 ├── few_shot_examples.yaml   # Hand-curated question→SQL pairs
 ├── few_shot_loader.py       # Example loader with table-overlap selector
@@ -149,7 +157,23 @@ CONFIDENCE_WEIGHT_AGREEMENT=0.20            # weight of the agreement signal (de
 CONFIDENCE_WEIGHT_COVERAGE=0.15             # weight of the coverage signal (default 0.15)
 ```
 
-> **Note — NVIDIA NIM account limitations (Phase 3):** The LLM-driven Phase 3 steps (`back_translation`, the alignment LLM judge, multi-query alternative generation, and the empty-result judge) depend on the NVIDIA NIM API. The NIM free tier provides a baseline of 1,000 inference credits and a 40 requests/minute rate limit, and **model availability varies by account** — a model listed in the NIM catalog may not be provisioned for your API key, in which case requests hang or return `404 "Not found for account"`. At the time of writing, `minimaxai/minimax-m3` is the model confirmed working for this project, while the `deepseek-ai/deepseek-v4-*` models were observed to hang. As a result, back-translation and multi-query may fail with `429 Too Many Requests` under rapid calls, or hang when the account quota is exhausted. These steps are advisory-by-default, so the pipeline still generates SQL, executes it, and scores confidence even when they fail.
+Phase 4 (API + frontend + feedback loop) adds:
+
+- **HTTP API** — `api/` exposes `POST /v1/query`, `POST /v1/execute`, `GET /v1/schema`, `GET /v1/history`, `GET /v1/query/{id}`, and `POST /v1/feedback` via FastAPI. Start with `uvicorn api.app:create_app --factory --host 127.0.0.1 --port 8000` (auto docs at `/docs`).
+- **Streamlit frontend** — `frontend/app.py` (`streamlit run frontend/app.py`) with a question box, syntax-highlighted editable SQL, sortable results, confidence breakdown, and a history sidebar.
+- **SQLite store** — `store/` persists query history and feedback in `store/text_to_sql.db`.
+- **Feedback flywheel** — marking a result correct appends it to `few_shot_feedback.yaml` (merged into few-shot selection); marking it incorrect exports a regression case to `eval/test_cases.yaml`, runnable with `python -m eval.runner`.
+
+Phase 4 knobs are optional with sensible defaults:
+
+```env
+SQLITE_DB_PATH=store/text_to_sql.db
+FEW_SHOT_FEEDBACK_PATH=few_shot_feedback.yaml
+EVAL_TEST_CASES_PATH=eval/test_cases.yaml
+API_HOST=127.0.0.1
+API_PORT=8000
+API_BASE_URL=http://127.0.0.1:8000
+```
 
 ### 3. Start PostgreSQL with Pagila
 

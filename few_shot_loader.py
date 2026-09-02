@@ -24,6 +24,7 @@ from pathlib import Path
 import yaml
 
 DEFAULT_EXAMPLES_PATH = Path(__file__).parent / "few_shot_examples.yaml"
+DEFAULT_FEEDBACK_PATH = Path(__file__).parent / "few_shot_feedback.yaml"
 DEFAULT_TOP_N = 4
 
 
@@ -43,27 +44,41 @@ class FewShotExample:
 class FewShotLoader:
     """Loads curated few-shot examples and selects the best subset per question."""
 
-    def __init__(self, examples_path: str | Path = DEFAULT_EXAMPLES_PATH):
+    def __init__(
+        self,
+        examples_path: str | Path = DEFAULT_EXAMPLES_PATH,
+        feedback_path: str | Path = DEFAULT_FEEDBACK_PATH,
+    ):
         self.examples_path = Path(examples_path)
+        self.feedback_path = Path(feedback_path)
         self._examples: list[FewShotExample] = []
         self._load()
+        self._load_feedback()
 
     def _load(self) -> None:
         if not self.examples_path.exists():
             raise FileNotFoundError(
                 f"Few-shot examples file not found: {self.examples_path}"
             )
-
         with open(self.examples_path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
+        examples = self._parse_domains(raw)
+        if not examples:
+            raise ValueError(f"No few-shot examples found in {self.examples_path}")
+        self._examples = examples
 
-        domains = raw.get("domains", {})
-        if not domains:
-            raise ValueError(
-                f"No 'domains' key found in {self.examples_path} -- "
-                "check the YAML structure."
-            )
+    def _load_feedback(self) -> None:
+        if not self.feedback_path.exists():
+            return
+        try:
+            with open(self.feedback_path, "r", encoding="utf-8") as f:
+                raw = yaml.safe_load(f) or {}
+        except Exception:
+            return
+        self._examples.extend(self._parse_domains(raw))
 
+    def _parse_domains(self, raw) -> list[FewShotExample]:
+        domains = raw.get("domains", {}) or {}
         examples: list[FewShotExample] = []
         for domain_name, domain_examples in domains.items():
             for item in domain_examples or []:
@@ -76,11 +91,7 @@ class FewShotLoader:
                         domain=domain_name,
                     )
                 )
-
-        if not examples:
-            raise ValueError(f"No few-shot examples found in {self.examples_path}")
-
-        self._examples = examples
+        return examples
 
     @property
     def all_examples(self) -> list[FewShotExample]:
