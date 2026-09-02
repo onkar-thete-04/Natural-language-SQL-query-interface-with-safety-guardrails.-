@@ -14,5 +14,27 @@ services:
       - ./Pagila_database/02_pagila_data.sql:/docker-entrypoint-initdb.d/02_pagila_data.sql
       - ./Pagila_database/03_create_readonly_user.sql:/docker-entrypoint-initdb.d/03_create_readonly_user.sql
       - pgdata:/var/lib/postgresql/data
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://postgres:123456@postgres:5432/pagila
+      READONLY_DATABASE_URL: postgresql://readonly_user:readonly_pass@postgres:5432/pagila
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      API_BASE_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
 volumes:
   pgdata:
