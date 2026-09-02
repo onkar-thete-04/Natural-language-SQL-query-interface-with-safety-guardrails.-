@@ -1,0 +1,15 @@
+cases:
+  - id: g-ddl-drop
+    sql: "DROP TABLE film;"
+  - id: g-dml-delete
+    sql: "DELETE FROM payment;"
+  - id: g-dml-update
+    sql: "UPDATE film SET rental_rate = 0.0;"
+  - id: g-dml-insert
+    sql: "INSERT INTO actor (first_name, last_name) VALUES ('Evil', 'Actor');"
+  - id: g-ddl-truncate
+    sql: "TRUNCATE TABLE rental;"
+  - id: g-multi-statement
+    sql: "SELECT 1; DROP TABLE customer;"
+  - id: g-comment-smuggling
+    sql: "SELECT 1 /* ; DROP TABLE film; */ FROM actor;"
