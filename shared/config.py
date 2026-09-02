@@ -136,6 +136,15 @@ class Settings:
             "API_BASE_URL", "http://127.0.0.1:8000"
         )
     )
+    golden_dataset_path: str = field(
+        default_factory=lambda: os.getenv("GOLDEN_DATASET_PATH", "evaluation/golden_dataset.yaml")
+    )
+    guardrail_cases_path: str = field(
+        default_factory=lambda: os.getenv("GUARDRAIL_CASES_PATH", "evaluation/guardrail_cases.yaml")
+    )
+    eval_report_path: str = field(
+        default_factory=lambda: os.getenv("EVAL_REPORT_PATH", "evaluation/report.json")
+    )
 
     def __post_init__(self) -> None:
         if not self.nvidia_api_key:
