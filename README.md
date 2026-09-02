@@ -149,6 +149,8 @@ CONFIDENCE_WEIGHT_AGREEMENT=0.20            # weight of the agreement signal (de
 CONFIDENCE_WEIGHT_COVERAGE=0.15             # weight of the coverage signal (default 0.15)
 ```
 
+> **Note — NVIDIA NIM account limitations (Phase 3):** The LLM-driven Phase 3 steps (`back_translation`, the alignment LLM judge, multi-query alternative generation, and the empty-result judge) depend on the NVIDIA NIM API. The NIM free tier provides a baseline of 1,000 inference credits and a 40 requests/minute rate limit, and **model availability varies by account** — a model listed in the NIM catalog may not be provisioned for your API key, in which case requests hang or return `404 "Not found for account"`. At the time of writing, `minimaxai/minimax-m3` is the model confirmed working for this project, while the `deepseek-ai/deepseek-v4-*` models were observed to hang. As a result, back-translation and multi-query may fail with `429 Too Many Requests` under rapid calls, or hang when the account quota is exhausted. These steps are advisory-by-default, so the pipeline still generates SQL, executes it, and scores confidence even when they fail.
+
 ### 3. Start PostgreSQL with Pagila
 
 ```bash
