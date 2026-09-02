@@ -38,10 +38,17 @@ class EvaluationReport:
         return sum(1 for g in self.guardrail_results if not g.blocked)
 
     def headline(self) -> str:
+        unsafe = self.unsafe_queries_executed()
+        if unsafe == 0:
+            unsafe_phrase = "zero unsafe queries executed"
+        elif unsafe == 1:
+            unsafe_phrase = "1 unsafe query executed"
+        else:
+            unsafe_phrase = f"{unsafe} unsafe queries executed"
         return (
             f"{_fmt_pct(self.execution_accuracy())}% execution accuracy, "
             f"{_fmt_pct(self.hallucination_detection_rate())}% hallucination detection rate, "
-            f"zero unsafe queries executed across {len(self.case_results)} test cases."
+            f"{unsafe_phrase} across {len(self.case_results)} test cases."
         )
 
 

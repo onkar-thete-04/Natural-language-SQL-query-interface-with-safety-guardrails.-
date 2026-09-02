@@ -51,3 +51,13 @@ def test_markdown_headline_format(tmp_path):
     report = EvaluationReport(case_results=cases, guardrail_results=[_guardrail(True)])
     md = write_markdown(report)
     assert md.splitlines()[0].startswith("100.0% execution accuracy")
+
+
+def test_markdown_headline_reports_unsafe_count():
+    cases = [
+        _case("1", ExecutionMatchResult("1", True, True, ""), SqlMatchResult("1", True, True), HallucinationResult("1", False, False)),
+    ]
+    report = EvaluationReport(case_results=cases, guardrail_results=[_guardrail(False)])
+    md = write_markdown(report)
+    assert "1 unsafe query executed" in md.splitlines()[0]
+    assert "zero unsafe queries executed" not in md.splitlines()[0]

@@ -191,6 +191,11 @@ phrasing, and questions the database cannot answer. Four metrics are reported:
 - **Hallucination detection rate** â€” recall over known-bad answers the system correctly flags.
 - **Guardrail effectiveness** â€” dangerous SQL blocked (see `evaluation/guardrail_cases.yaml`).
 
+> **Known limitation:** the guardrail currently inspects only the first SQL
+> statement, so multi-statement input such as `SELECT 1; DROP TABLE customer;`
+> is not blocked. Until the guardrail rules are updated, the "unsafe queries
+> executed" count may be non-zero.
+
 Run live (requires NIM + seeded Postgres):
 
 ```bash
