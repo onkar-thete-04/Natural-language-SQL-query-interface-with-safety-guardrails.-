@@ -91,3 +91,11 @@ def test_validate_cases_requires_at_least_50():
     c = GoldenCase("x", "simple_lookup", "q", "SELECT 1;", 1, "")
     with pytest.raises(ValueError):
         validate_cases([c] * 49)
+
+
+def test_validate_cases_rejects_missing_category():
+    cases = [c for c in _valid_dataset() if c.category != "date_filter"]
+    while len(cases) < 50:
+        cases.append(GoldenCase(f"pad-{len(cases)}", "simple_lookup", "q", "SELECT 1;", None, ""))
+    with pytest.raises(ValueError):
+        validate_cases(cases)  # >=50 valid cases, but missing one category
