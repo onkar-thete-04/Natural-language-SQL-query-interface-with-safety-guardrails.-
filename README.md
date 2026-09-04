@@ -6,99 +6,99 @@ Natural language to SQL pipeline for PostgreSQL. Takes a plain-English question,
 
 ```
 User Question
-     â”‚
-     â”œâ”€â”€ relevance_filter/     â†’ scores tables by semantic similarity (fastembed)
-     â”‚
-     â””â”€â”€ ambiguity_resolver/   â†’ detects multi-interpretation questions, surfaces
-     â”‚                            structured ClarificationRequest or passes through
-     â”‚
-     â–¼
-prompt_builder/                â†’ assembles final prompt from:
-  â”œâ”€â”€ schema_engine/           â†’   introspected schema (SQLAlchemy, cached at startup)
-  â”œâ”€â”€ few_shot_loader.py       â†’   curated questionâ†’SQL pairs (table-overlap selection)
-  â””â”€â”€ relevance_filter output  â†’   filtered table context
-     â”‚
-     â–¼
-sql_generator/                 â†’ LLM function call â†’ structured SQL result
-     â”‚                         (sqlparse validation + retry). Emits SQL plus
-     â”‚                         explanation, confidence, tables, columns.
-     â”‚
-     â”œâ”€â”€ back_translation/     â†’ translates SQL back into a natural-language question
-     â”‚                            and aligns it against the original (embedding + LLM
-     â”‚                            judge) to detect hallucinated SQL.
-     â”‚
-     â””â”€â”€ multi_query/          â†’ detects complex questions and generates a second,
+     |
+     |-- relevance_filter/     -> scores tables by semantic similarity (fastembed)
+     |
+     `-- ambiguity_resolver/   -> detects multi-interpretation questions, surfaces
+     |                            structured ClarificationRequest or passes through
+     |
+     v
+prompt_builder/                -> assembles final prompt from:
+  |-- schema_engine/           ->   introspected schema (SQLAlchemy, cached at startup)
+  |-- few_shot_loader.py       ->   curated question->SQL pairs (table-overlap selection)
+  `-- relevance_filter output  ->   filtered table context
+     |
+     v
+sql_generator/                 -> LLM function call -> structured SQL result
+     |                         (sqlparse validation + retry). Emits SQL plus
+     |                         explanation, confidence, tables, columns.
+     |
+     |-- back_translation/     -> translates SQL back into a natural-language question
+     |                            and aligns it against the original (embedding + LLM
+     |                            judge) to detect hallucinated SQL.
+     |
+     `-- multi_query/          -> detects complex questions and generates a second,
                                   independent SQL approach for cross-validation.
-     â–¼
-guardrail/                     â†’ 5 rules: block DDL, block DML writes, row-limit
-     â”‚                         enforcement (default 1000), subquery depth (max 3),
-     â”‚                         EXPLAIN scan-cost limit (max 100k rows).
-     â–¼
-sandbox/                       â†’ read-only engine + BEGIN READ ONLY â€¦ ROLLBACK
-     â”‚                         transaction.
-     â–¼
-executor/                      â†’ runs the guarded SQL, captures rows as list[dict],
-     â”‚                            EXPLAIN plan, execution time, truncation flag.
-     â”‚
-     â”œâ”€â”€ sanity_check/         â†’ post-execution sanity checks: NULL-cell share,
-     â”‚                            empty-result anomaly detection, column/row checks.
-     â”‚
-     â”œâ”€â”€ multi_query/          â†’ compares primary vs. alternative result sets
-     â”‚                            (row-level agreement) when a second approach ran.
-     â”‚
-     â””â”€â”€ confidence/           â†’ weighted aggregation of syntax, alignment, sanity,
-                                  agreement, and coverage into a 0â€“100 score.
-     â–¼
-confidence report              â†’ emits a CONFIDENCE block; optionally blocks execution
+     v
+guardrail/                     -> 5 rules: block DDL, block DML writes, row-limit
+     |                         enforcement (default 1000), subquery depth (max 3),
+     |                         EXPLAIN scan-cost limit (max 100k rows).
+     v
+sandbox/                       -> read-only engine + BEGIN READ ONLY ... ROLLBACK
+     |                         transaction.
+     v
+executor/                      -> runs the guarded SQL, captures rows as list[dict],
+     |                            EXPLAIN plan, execution time, truncation flag.
+     |
+     |-- sanity_check/         -> post-execution sanity checks: NULL-cell share,
+     |                            empty-result anomaly detection, column/row checks.
+     |
+     |-- multi_query/          -> compares primary vs. alternative result sets
+     |                            (row-level agreement) when a second approach ran.
+     |
+     `-- confidence/           -> weighted aggregation of syntax, alignment, sanity,
+                                  agreement, and coverage into a 0-100 score.
+     v
+confidence report              -> emits a CONFIDENCE block; optionally blocks execution
                                 when the score falls below the configured floor.
 ```
 
 Three layers of defense keep generated SQL read-only: the app-level guardrail, a `BEGIN READ ONLY` transaction, and a SELECT-only DB user (`readonly_user`).
 
-Each service is an independent package communicating through `shared/` only â€” no cross-service imports.
+Each service is an independent package communicating through `shared/` only -- no cross-service imports.
 
 ## Tech Stack
 
 - **Python** 3.11+
-- **SQLAlchemy** 2.x â€” schema introspection + read-only execution engine
-- **fastembed** (ONNX, `BAAI/bge-small-en-v1.5`) â€” table relevance embeddings
-- **OpenAI SDK** â€” LLM calls (pointed at NVIDIA API gateway)
-- **sqlparse** >=0.5 â€” SQL parsing for guardrail validation
-- **FastAPI** + **Uvicorn** â€” HTTP API (`api/`) exposing query/execute/schema/history/feedback endpoints
-- **Streamlit** â€” interactive frontend (`frontend/`)
-- **httpx** â€” async HTTP client (API testing + frontendâ†”API transport)
-- **PostgreSQL** 13 â€” target database (Pagila sample schema)
-- **Docker Compose** â€” local database provisioning
+- **SQLAlchemy** 2.x -- schema introspection + read-only execution engine
+- **fastembed** (ONNX, `BAAI/bge-small-en-v1.5`) -- table relevance embeddings
+- **OpenAI SDK** -- LLM calls (pointed at NVIDIA API gateway)
+- **sqlparse** >=0.5 -- SQL parsing for guardrail validation
+- **FastAPI** + **Uvicorn** -- HTTP API (`api/`) exposing query/execute/schema/history/feedback endpoints
+- **Streamlit** -- interactive frontend (`frontend/`)
+- **httpx** -- async HTTP client (API testing + frontend-API transport)
+- **PostgreSQL** 13 -- target database (Pagila sample schema)
+- **Docker Compose** -- local database provisioning
 
 ## Project Structure
 
 ```
 Text-to-SQL/
-â”œâ”€â”€ shared/                  # Config, LLM client, shared models, errors
-â”œâ”€â”€ schema_engine/           # SQLAlchemy introspection + sample extraction
-â”œâ”€â”€ relevance_filter/        # fastembed-based table scoring
-â”œâ”€â”€ ambiguity_resolver/      # Multi-interpretation detection
-â”œâ”€â”€ prompt_builder/          # Prompt assembly + schema renderer
-â”œâ”€â”€ sql_generator/           # LLM function call + sqlparse validation + retry
-â”œâ”€â”€ guardrail/               # 5-rule SQL safety validator
-â”œâ”€â”€ sandbox/                 # Read-only engine + BEGIN READ ONLY / ROLLBACK
-â”œâ”€â”€ executor/                # Runs guarded SQL, returns rows + EXPLAIN + timing
-â”œâ”€â”€ back_translation/        # SQL â†’ NL back-translation + alignment scoring
-â”œâ”€â”€ sanity_check/            # Post-execution sanity checks + empty-result detection
-â”œâ”€â”€ multi_query/             # Complexity detection + alternative generation + comparison
-â”œâ”€â”€ confidence/              # Weighted confidence aggregation + schema coverage
-â”œâ”€â”€ pipeline/                # End-to-end pipeline orchestration
-â”œâ”€â”€ api/                     # FastAPI HTTP API (query, execute, schema, history, feedback)
-â”œâ”€â”€ store/                   # SQLite query history + feedback persistence
-â”œâ”€â”€ eval/                    # Evaluation harness + regression test cases
-â”œâ”€â”€ frontend/                # Streamlit UI
-â”œâ”€â”€ main.py                  # CLI entry point (pipeline steps [1]-[14])
-â”œâ”€â”€ few_shot_examples.yaml   # Hand-curated questionâ†’SQL pairs
-â”œâ”€â”€ few_shot_loader.py       # Example loader with table-overlap selector
-â”œâ”€â”€ pyproject.toml           # Dependencies and project metadata
-â”œâ”€â”€ docker-compose.yml       # PostgreSQL + Pagila + readonly_user provisioning
-â”œâ”€â”€ Dockerfile               # App container
-â””â”€â”€ Pagila_database/         # Pagila schema, seed data, readonly_user script, CSVs
+|-- shared/                  # Config, LLM client, shared models, errors
+|-- schema_engine/           # SQLAlchemy introspection + sample extraction
+|-- relevance_filter/        # fastembed-based table scoring
+|-- ambiguity_resolver/      # Multi-interpretation detection
+|-- prompt_builder/          # Prompt assembly + schema renderer
+|-- sql_generator/           # LLM function call + sqlparse validation + retry
+|-- guardrail/               # 5-rule SQL safety validator
+|-- sandbox/                 # Read-only engine + BEGIN READ ONLY / ROLLBACK
+|-- executor/                # Runs guarded SQL, returns rows + EXPLAIN + timing
+|-- back_translation/        # SQL -> NL back-translation + alignment scoring
+|-- sanity_check/            # Post-execution sanity checks + empty-result detection
+|-- multi_query/             # Complexity detection + alternative generation + comparison
+|-- confidence/              # Weighted confidence aggregation + schema coverage
+|-- pipeline/                # End-to-end pipeline orchestration
+|-- api/                     # FastAPI HTTP API (query, execute, schema, history, feedback)
+|-- store/                   # SQLite query history + feedback persistence
+|-- eval/                    # Evaluation harness + regression test cases
+|-- frontend/                # Streamlit UI
+|-- main.py                  # CLI entry point (pipeline steps [1]-[14])
+|-- few_shot_examples.yaml   # Hand-curated question->SQL pairs
+|-- few_shot_loader.py       # Example loader with table-overlap selector
+|-- pyproject.toml           # Dependencies and project metadata
+|-- docker-compose.yml       # PostgreSQL + Pagila + readonly_user provisioning
+|-- Dockerfile               # App container
+`-- Pagila_database/         # Pagila schema, seed data, readonly_user script, CSVs
 ```
 
 ## Setup
@@ -123,7 +123,7 @@ READONLY_DATABASE_URL=postgresql://readonly_user:readonly_pass@localhost:5432/pa
 EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 ```
 
-All Phase 2 guardrail knobs are optional with sensible defaults â€” add them only to override:
+All Phase 2 guardrail knobs are optional with sensible defaults -- add them only to override:
 
 ```env
 BLOCK_DDL=true               # block DDL statements (default true)
@@ -135,18 +135,18 @@ MAX_SCAN_ROWS=100000         # max estimated EXPLAIN scan rows (default 100000)
 
 Phase 3 (hallucination detection) adds four sub-phases on top of the Phase 1/2 pipeline, all driven through the `judge_model` where LLM input is needed:
 
-- **Back-translation alignment** â€” `back_translation/` translates the generated SQL back into a natural-language question and aligns it against the original question using embedding similarity plus an LLM judge. A low alignment score flags SQL that may not answer what was asked.
-- **Sanity checks** â€” `sanity_check/` inspects execution results for structural anomalies: excessive NULL cells, suspiciously empty result sets, and mismatched rows/columns.
-- **Multi-query validation** â€” `multi_query/` detects complex questions, generates a second independent SQL approach, executes it, and compares the two result sets for row-level agreement.
-- **Confidence scoring** â€” `confidence/` aggregates the five signals (SQL syntax, back-translation alignment, sanity checks, multi-query agreement, schema coverage) into a weighted 0â€“100 score and optionally blocks execution below a floor.
+- **Back-translation alignment** -- `back_translation/` translates the generated SQL back into a natural-language question and aligns it against the original question using embedding similarity plus an LLM judge. A low alignment score flags SQL that may not answer what was asked.
+- **Sanity checks** -- `sanity_check/` inspects execution results for structural anomalies: excessive NULL cells, suspiciously empty result sets, and mismatched rows/columns.
+- **Multi-query validation** -- `multi_query/` detects complex questions, generates a second independent SQL approach, executes it, and compares the two result sets for row-level agreement.
+- **Confidence scoring** -- `confidence/` aggregates the five signals (SQL syntax, back-translation alignment, sanity checks, multi-query agreement, schema coverage) into a weighted 0-100 score and optionally blocks execution below a floor.
 
 Phase 3 introduces these new pipeline steps: `[7]` back-translation alignment, `[8]` multi-query complexity check, `[12]` sanity checks, `[13]` multi-query comparison, and `[14]` confidence scoring.
 
 Phase 3 knobs are optional with sensible defaults:
 
 ```env
-BACK_TRANSLATION_EMBED_PASS_THRESHOLD=0.92  # embedding alignment â†’ aligned (default 0.92)
-BACK_TRANSLATION_EMBED_FAIL_THRESHOLD=0.70  # embedding alignment â†’ low confidence (default 0.70)
+BACK_TRANSLATION_EMBED_PASS_THRESHOLD=0.92  # embedding alignment -> aligned (default 0.92)
+BACK_TRANSLATION_EMBED_FAIL_THRESHOLD=0.70  # embedding alignment -> low confidence (default 0.70)
 SANITY_NULL_THRESHOLD=0.80                  # max allowed NULL-cell share (default 0.80)
 BLOCK_ON_LOW_CONFIDENCE=false               # abort below MIN_CONFIDENCE_SCORE (default false)
 MIN_CONFIDENCE_SCORE=60.0                   # confidence floor when blocking is on (default 60.0)
@@ -157,14 +157,14 @@ CONFIDENCE_WEIGHT_AGREEMENT=0.20            # weight of the agreement signal (de
 CONFIDENCE_WEIGHT_COVERAGE=0.15             # weight of the coverage signal (default 0.15)
 ```
 
-> **Note — NVIDIA NIM account limitations (Phase 3):** The LLM-driven Phase 3 steps (`back_translation`, the alignment LLM judge, multi-query alternative generation, and the empty-result judge) depend on the NVIDIA NIM API. The NIM free tier provides a baseline of 1,000 inference credits and a 40 requests/minute rate limit, and **model availability varies by account** — a model listed in the NIM catalog may not be provisioned for your API key, in which case requests hang or return `404 "Not found for account"`. At the time of writing, `minimaxai/minimax-m3` is the model confirmed working for this project, while the `deepseek-ai/deepseek-v4-*` models were observed to hang. As a result, back-translation and multi-query may fail with `429 Too Many Requests` under rapid calls, or hang when the account quota is exhausted. These steps are advisory-by-default, so the pipeline still generates SQL, executes it, and scores confidence even when they fail.
+> **Note -- NVIDIA NIM account limitations (Phase 3):** The LLM-driven Phase 3 steps (`back_translation`, the alignment LLM judge, multi-query alternative generation, and the empty-result judge) depend on the NVIDIA NIM API. The NIM free tier provides a baseline of 1,000 inference credits and a 40 requests/minute rate limit, and **model availability varies by account** -- a model listed in the NIM catalog may not be provisioned for your API key, in which case requests hang or return `404 "Not found for account"`. At the time of writing, `minimaxai/minimax-m3` is the model confirmed working for this project, while the `deepseek-ai/deepseek-v4-*` models were observed to hang. As a result, back-translation and multi-query may fail with `429 Too Many Requests` under rapid calls, or hang when the account quota is exhausted. These steps are advisory-by-default, so the pipeline still generates SQL, executes it, and scores confidence even when they fail.
 
 Phase 4 (API + frontend + feedback loop) adds:
 
-- **HTTP API** — `api/` exposes `POST /v1/query`, `POST /v1/execute`, `GET /v1/schema`, `GET /v1/history`, `GET /v1/query/{id}`, and `POST /v1/feedback` via FastAPI. Start with `uvicorn api.app:create_app --factory --host 127.0.0.1 --port 8000` (auto docs at `/docs`).
-- **Streamlit frontend** — `frontend/app.py` (`streamlit run frontend/app.py`) with a question box, syntax-highlighted editable SQL, sortable results, confidence breakdown, and a history sidebar.
-- **SQLite store** — `store/` persists query history and feedback in `store/text_to_sql.db`.
-- **Feedback flywheel** — marking a result correct appends it to `few_shot_feedback.yaml` (merged into few-shot selection); marking it incorrect exports a regression case to `eval/test_cases.yaml`, runnable with `python -m eval.runner`.
+- **HTTP API** -- `api/` exposes `POST /v1/query`, `POST /v1/execute`, `GET /v1/schema`, `GET /v1/history`, `GET /v1/query/{id}`, and `POST /v1/feedback` via FastAPI. Start with `uvicorn api.app:create_app --factory --host 127.0.0.1 --port 8000` (auto docs at `/docs`).
+- **Streamlit frontend** -- `frontend/app.py` (`streamlit run frontend/app.py`) with a question box, syntax-highlighted editable SQL, sortable results, confidence breakdown, and a history sidebar.
+- **SQLite store** -- `store/` persists query history and feedback in `store/text_to_sql.db`.
+- **Feedback flywheel** -- marking a result correct appends it to `few_shot_feedback.yaml` (merged into few-shot selection); marking it incorrect exports a regression case to `eval/test_cases.yaml`, runnable with `python -m eval.runner`.
 
 Phase 4 knobs are optional with sensible defaults:
 
@@ -186,10 +186,10 @@ The evaluation suite measures the system against a 54-case golden dataset
 multi-table JOINs, GROUP BY aggregations, date-range filters, ambiguous
 phrasing, and questions the database cannot answer. Four metrics are reported:
 
-- **SQL exact match** â€” normalized (sqlparse) string equivalence of generated vs gold SQL.
-- **Execution match** â€” generated result set equals gold SQL result set (order-insensitive).
-- **Hallucination detection rate** â€” recall over known-bad answers the system correctly flags.
-- **Guardrail effectiveness** â€” dangerous SQL blocked (see `evaluation/guardrail_cases.yaml`).
+- **SQL exact match** -- normalized (sqlparse) string equivalence of generated vs gold SQL.
+- **Execution match** -- generated result set equals gold SQL result set (order-insensitive).
+- **Hallucination detection rate** -- recall over known-bad answers the system correctly flags.
+- **Guardrail effectiveness** -- dangerous SQL blocked (see `evaluation/guardrail_cases.yaml`).
 
 > **Known limitation:** the guardrail currently inspects only the first SQL
 > statement, so multi-statement input such as `SELECT 1; DROP TABLE customer;`
@@ -223,10 +223,10 @@ After a live run, replace the headline line above with the real numbers
 docker-compose up -d
 ```
 
-This provisions a PostgreSQL 13.2 container with the full Pagila sample database plus a SELECT-only `readonly_user` (auto-created from `Pagila_database/03_create_readonly_user.sql`, which is mounted into the container's init directory). The init scripts only run on a fresh data volume â€” if the container already exists, restart it to apply the readonly user:
+This provisions a PostgreSQL 13.2 container with the full Pagila sample database plus a SELECT-only `readonly_user` (auto-created from `Pagila_database/03_create_readonly_user.sql`, which is mounted into the container's init directory). The init scripts only run on a fresh data volume -- if the container already exists, restart it to apply the readonly user:
 
 ```bash
-docker-compose down -v && docker-compose up -d   # fresh volume â†’ reprovisions
+docker-compose down -v && docker-compose up -d   # fresh volume -> reprovisions
 ```
 
 ### 4. Verify
@@ -258,7 +258,7 @@ The pipeline outputs:
 11. Execution results (row count, columns, execution time, truncated flag, EXPLAIN plan)
 12. Sanity checks (passed/total + anomalies)
 13. Multi-query comparison (agreement between primary and alternative results)
-14. Confidence report (weighted 0â€“100 score + per-signal bars + flags)
+14. Confidence report (weighted 0-100 score + per-signal bars + flags)
 
 ### Example
 
