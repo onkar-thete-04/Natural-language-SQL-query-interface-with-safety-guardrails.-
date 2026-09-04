@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 from shared.config import Settings
 
@@ -13,6 +14,8 @@ def main() -> int:
     from evaluation.runner import EvaluationRunner
     from evaluation.report import write_json, write_markdown
 
+    if args.offline:
+        os.environ["OFFLINE_MODE"] = "true"
     settings = Settings()
     report = EvaluationRunner(settings, offline=args.offline).run()
     write_json(report, settings.eval_report_path)

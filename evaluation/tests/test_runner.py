@@ -19,10 +19,11 @@ def _settings(tmp_path):
 @mock.patch("evaluation.runner.evaluate_execution")
 @mock.patch("evaluation.runner.evaluate_sql")
 @mock.patch("evaluation.runner.OfflinePipelineService")
+@mock.patch("evaluation.runner.validate_cases")
 @mock.patch("evaluation.runner.load_cases")
 @mock.patch("evaluation.runner.load_guardrail_cases")
 @mock.patch("evaluation.runner.EvaluationReport")
-def test_runner_iterates_cases_offline(mock_report, load_gc, load_cases, pipeline_cls, eval_sql, eval_exec, classify, tmp_path):
+def test_runner_iterates_cases_offline(mock_report, load_gc, load_cases, validate_cases, pipeline_cls, eval_sql, eval_exec, classify, tmp_path):
     from evaluation.dataset import GoldenCase
     load_cases.return_value = [GoldenCase("c1", "simple_lookup", "q1", "SELECT 1;", 1, "")]
     load_gc.return_value = []
@@ -40,10 +41,11 @@ def test_runner_iterates_cases_offline(mock_report, load_gc, load_cases, pipelin
 
 @mock.patch("evaluation.runner.create_engine")
 @mock.patch("evaluation.runner.evaluate_guardrail")
+@mock.patch("evaluation.runner.validate_cases")
 @mock.patch("evaluation.runner.load_cases")
 @mock.patch("evaluation.runner.load_guardrail_cases")
 @mock.patch("evaluation.runner.EvaluationReport")
-def test_runner_runs_guardrail_cases(mock_report, load_gc, load_cases, eval_g, create_engine, tmp_path):
+def test_runner_runs_guardrail_cases(mock_report, load_gc, load_cases, validate_cases, eval_g, create_engine, tmp_path):
     load_cases.return_value = []
     load_gc.return_value = [{"id": "g1", "sql": "DROP TABLE film;"}]
     eval_g.return_value = mock.MagicMock(blocked=True, rules=["block_ddl"])

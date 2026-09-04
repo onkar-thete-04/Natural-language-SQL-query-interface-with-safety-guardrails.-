@@ -4,11 +4,11 @@ from dataclasses import dataclass
 
 from sqlalchemy import create_engine
 
-from evaluation.dataset import GoldenCase, load_cases
-from evaluation.metrics.execution_match import evaluate as evaluate_execution
+from evaluation.dataset import GoldenCase, load_cases, validate_cases
+from evaluation.metrics.execution_match import ExecutionMatchResult, evaluate as evaluate_execution
 from evaluation.metrics.guardrail import evaluate as evaluate_guardrail, load_guardrail_cases
-from evaluation.metrics.hallucination import classify as classify_hallucination
-from evaluation.metrics.sql_match import evaluate as evaluate_sql
+from evaluation.metrics.hallucination import HallucinationResult, classify as classify_hallucination
+from evaluation.metrics.sql_match import SqlMatchResult, evaluate as evaluate_sql
 from evaluation.offline import OfflinePipelineService
 from evaluation.report import EvaluationReport
 
@@ -39,14 +39,20 @@ class EvaluationRunner:
 
     def run(self) -> EvaluationReport:
         cases = load_cases(self.settings.golden_dataset_path)
+        validate_cases(cases)
         service = self._make_service(cases)
 
         case_results: list[CaseResult] = []
         for case in cases:
-            result = service.run(case.question)
-            sql_match = evaluate_sql(case, result)
-            execution = evaluate_execution(case, result, self.settings.readonly_db_url, self.settings.enforce_row_limit)
-            hallucination = classify_hallucination(case.id, result, execution, self.settings.min_confidence_score)
+            try:
+                result = service.run(case.question)
+                sql_match = evaluate_sql(case, result)
+                execution = evaluate_execution(case, result, self.settings.readonly_db_url, self.settings.enforce_row_limit)
+                hallucination = classify_hallucination(case.id, result, execution, self.settings.min_confidence_score)
+            except Exception as exc:
+                sql_match = SqlMatchResult(case.id, False, None)
+                execution = ExecutionMatchResult(case.id, False, None, f"error: {exc}")
+                hallucination = HallucinationResult(case.id, False, False)
             case_results.append(CaseResult(case.id, case.category, sql_match, execution, hallucination))
 
         guardrail_results = self._run_guardrail_cases()

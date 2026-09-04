@@ -147,6 +147,8 @@ class Settings:
     )
 
     def __post_init__(self) -> None:
+        if os.getenv("OFFLINE_MODE", "").lower() == "true":
+            return
         if not self.nvidia_api_key:
             raise ValueError("NVIDIA_API_KEY is not set in .env")
 
