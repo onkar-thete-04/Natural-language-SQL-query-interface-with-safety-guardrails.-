@@ -95,6 +95,21 @@ class Settings:
     confidence_weight_coverage: float = field(
         default_factory=lambda: float(os.getenv("CONFIDENCE_WEIGHT_COVERAGE", "0.15"))
     )
+    llm_rate_limit_rpm: int = field(
+        default_factory=lambda: int(os.getenv("LLM_RATE_LIMIT_RPM", "35"))
+    )
+    llm_retry_max_attempts: int = field(
+        default_factory=lambda: int(os.getenv("LLM_RETRY_MAX_ATTEMPTS", "4"))
+    )
+    llm_retry_base_delay: float = field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_BASE_DELAY", "2.0"))
+    )
+    llm_retry_max_delay: float = field(
+        default_factory=lambda: float(os.getenv("LLM_RETRY_MAX_DELAY", "60.0"))
+    )
+    llm_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
+    )
     sqlite_db_path: str = field(
         default_factory=lambda: os.getenv(
             "SQLITE_DB_PATH", "store/text_to_sql.db"
@@ -135,7 +150,19 @@ class Settings:
     llm_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
     )
+    golden_dataset_path: str = field(
+        default_factory=lambda: os.getenv("GOLDEN_DATASET_PATH", "evaluation/golden_dataset.yaml")
+    )
+    guardrail_cases_path: str = field(
+        default_factory=lambda: os.getenv("GUARDRAIL_CASES_PATH", "evaluation/guardrail_cases.yaml")
+    )
+    eval_report_path: str = field(
+        default_factory=lambda: os.getenv("EVAL_REPORT_PATH", "evaluation/report.json")
+    )
 
     def __post_init__(self) -> None:
+        if os.getenv("OFFLINE_MODE", "").lower() == "true":
+            return
         if not self.nvidia_api_key:
             raise ValueError("NVIDIA_API_KEY is not set in .env")
+
